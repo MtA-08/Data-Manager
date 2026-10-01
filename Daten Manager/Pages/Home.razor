@@ -1,0 +1,109 @@
+﻿@page "/"
+@using System.Net.Http
+@using Microsoft.AspNetCore.Components.Web
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject ProduktService ProduktService
+
+<PageTitle>Datei Management</PageTitle>
+
+@if (!ProduktService.isFileLoaded)
+{
+	<label class="custom-drop-zone @(_isDragOver ? "drag-over" : "")"
+		   @ondragenter="HandleDragEnter"
+		   @ondragleave="HandleDragLeave"
+		   @ondrop="HandleDragLeave"
+		   @ondragover:preventDefault="true">
+
+		<InputFile class="hidden-file-input"
+				   OnChange="LoadPickedJsonData"
+				   accept=".zip" />
+
+		<span class="drop-zone-content">
+			<img src="file-plus.svg" />
+
+			<span class="main-text">ZIP-Datei hochladen</span>
+
+			<span class="sub-text">
+				Hier ablegen oder
+				<span class="browse-link">Datei auswählen</span>
+			</span>
+		</span>
+	</label>
+}
+else
+{
+	<div class="top-row">
+		<h1 style="color: white;">Produkt zum bearbeiten wählen:</h1>
+		<button class="download-btn" @onclick="DownloadEditedProductsJson">
+			<img src="download.svg" />
+			Bearbeitete Produktdaten Herunterladen
+		</button>
+	</div>
+
+	<div class="produkt-grid">
+		<button class="produkt-auswahl-button" @onclick="NewProductView">
+			<img src="file-plus.svg" />
+			<p>Produkt Hinzufügen</p>
+		</button>
+		@foreach (var produkt in ProduktService.hochgeladeneProdukte)
+		{
+			<button class="produkt-auswahl-button" @onclick="() => ViewProduct(produkt.produktId)">
+				<img src="@produkt.bildDataUrl" />
+				<div>
+					@{
+						string safename;
+						if (produkt.name.Length > 22)
+						{
+							safename = produkt.name.Substring(0, 22) + "...";
+						}
+						else
+						{
+							safename = produkt.name;
+						}
+					}
+					<p>@safename</p>
+				</div>
+			</button>
+		}
+	</div>
+}
+
+@code
+{
+	List<Produkt> produkte = new();
+
+	public string loadedFileContent = "";
+
+	public async Task LoadPickedJsonData(InputFileChangeEventArgs e)
+	{
+		var file = e.File;
+		var memoryStream = new MemoryStream();
+		await file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024).CopyToAsync(memoryStream);
+		memoryStream.Position = 0;
+
+		await ProduktService.LoadProductDataAsync(memoryStream);
+	}
+
+	private void ViewProduct(int id)
+	{
+		Navigation.NavigateTo($"/product/{id}");
+	}
+
+	private void NewProductView()
+	{
+		Navigation.NavigateTo("/product/new");
+	}
+
+
+	private async Task DownloadEditedProductsJson()
+	{
+		await ProduktService.ExportDataToJsonAsync();
+	}
+
+	private bool _isDragOver = false;
+
+	private void HandleDragEnter() => _isDragOver = true;
+	private void HandleDragLeave() => _isDragOver = false;
+}

@@ -1,0 +1,363 @@
+﻿@page "/product/{Id:int}"
+@page "/product/new"
+
+@inject NavigationManager Navigation
+@inject ProduktService ProduktService
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+
+
+    @if (!isEditing)
+    {
+        <div class="top-row">
+            <button class="round-btn" @onclick="GoBackToHome"><img src="chevron-left.svg"/></button>
+            <h1>Produkt ID: @ausgewählteProdukt.produktId</h1>
+        </div>
+
+        <div class="produkt-container">
+
+            <div class="produkt-container-image">
+                @if (ausgewählteProdukt.bildDataUrl == "")
+                {
+                    <img src="@ausgewählteProdukt.bildPfad"/>
+                }
+                else
+                {
+                    <img src="@ausgewählteProdukt.bildDataUrl"/>
+                }
+
+                <button class="rectangle-btn edit-btn" @onclick="StartEditProduct">BEARBEITEN</button>
+            </div>
+
+            <div class="flex-row">
+                <div class="produkt-container-details">
+                    <div class="detail-block">
+                        <label>NAME</label>
+                        <h1 class="field-value product-name">@ausgewählteProdukt.name</h1>
+                    </div>
+
+                    <div class="detail-block">
+                        <label>HERSTELLER</label>
+                        <p class="field-value detail-text">@ausgewählteProdukt.hersteller</p>
+                    </div>
+
+                    <div class="detail-block">
+                        <label>PREIS</label>
+                        <p class="field-value detail-text">@ausgewählteProdukt.preis €</p>
+                    </div>
+
+                    <div class="detail-block">
+                        <label>TYP</label>
+                        <p class="field-value detail-text">@ausgewählteProdukt.produktTyp</p>
+                    </div>
+
+                    <div class="detail-block">
+                        <label>STICHWÖRTER</label>
+                        <p class="field-value detail-text-keywords">@ausgewählteProdukt.stichwörter</p>
+                    </div>
+
+                    <div class="detail-block">
+                        <label>IDEALO URL</label>
+                        <a href="@ausgewählteProdukt.idealoUrl" target="_blank" class="field-value detail-text-url">
+                            @ausgewählteProdukt.idealoUrl
+                            </a>
+                    </div>
+                </div>
+                <div class="produkt-container-details">
+                    <div class="detail-block">
+                        <label>EIGENSCHAFTEN</label>
+                        @foreach (var eigenschaft in ausgewählteProdukt.eigenschaften)
+                        {
+                            <p class="field-value detail-eigenschaft-text">@eigenschaft</p>
+                        }
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if(deleteConfirmPopup)
+        {
+            <div class="popUp-overlay">
+                <div class="centered-popUp delete-confirmation">
+                    <h5 style="font-weight: 600;">Möchten sie @editProduct.name wirklich löschen?</h5>
+                    <p>Dieses Produkt wird endgültig gelöscht</p>
+                    <div style="display: flex; align-items: center; justfy-content: center;">
+                        <button class="rectangle-btn cancel-dlt-btn" @onclick="() => deleteConfirmPopup = false">Zurück</button>
+                        <button class="rectangle-btn confirm-dlt-btn" @onclick="DeleteProduct">Löschen</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (alertVisible)
+        {
+            <div class="alert-popUp" >
+                <p>Bild, Name und Preis müssen ausgefüllt sein!</p>
+            </div>
+        }
+
+        <div class="top-row">
+            <button class="round-btn delete-btn" @onclick="ShowDeleteConfirmation">
+                <img src="trash-2.svg" />
+                </button>
+            <h1>Produkt Bearbeitung</h1>
+        </div>
+
+        <div class="produkt-container">
+            <div class="produkt-container-image">
+
+                <label class="custom-drop-zone @(_isDragOver ? "drag-over" : "")"
+                       @ondragenter="HandleDragEnter"
+                       @ondragleave="HandleDragLeave"
+                       @ondrop="HandleDragLeave"
+                       @ondragover:preventDefault="true">
+
+                    <InputFile class="hidden-file-input" 
+                               OnChange="LoadPickedProductImage"
+                               accept=".png,.jpg,.jpeg" />
+                    <span class="drop-zone-content">
+                            <img src="@editProduct.bildDataUrl" />
+                    </span>
+                </label>
+                <p style="justify-self: center;">Bild anclicken um sie zu ändern.</p>
+            @if (isNewProduct == true)
+            {
+                <button class="rectangle-btn save-btn" @onclick="AddNewProductToList">SPEICHERN</button>
+            }
+            else
+            {
+                <button class="rectangle-btn save-btn" @onclick="SaveEditProduct">SPEICHERN</button>
+            }
+            <button class="rectangle-btn cancel-btn" @onclick="CancelEditProduct">ABBRECHEN</button>
+            </div>
+
+            <div class="flex-row">
+                <div class="produkt-container-details">
+
+                    <div class="input-group">
+                        <label>NAME</label>
+                        <input type="text" @bind="editProduct.name" class="text-input-field" placeholder="Name eingeben..."/>
+                    </div>
+
+                    <div class="input-group">
+                        <label>HERSTELLER</label>
+                        <input type="text" @bind="editProduct.hersteller" class="text-input-field" placeholder="Hersteller eingeben..."/>
+                    </div>
+
+                    <div class="input-group">
+                        <label>PREIS</label>
+                
+                            <input type="text"
+                                   @bind="editProduct.preis"
+                                   placeholder="Preis eingeben..."
+                                   class="text-input-field" />
+                    </div>
+
+                    <div class="input-group">
+                        <label>TYP</label>
+                        <input type="text" @bind="editProduct.produktTyp" class="text-input-field" placeholder="Produkttyp eingeben..."/>
+                    </div>
+
+                    <div class="input-group">
+                        <label>STICHWÖRTER</label>
+                        <textarea @bind="editProduct.stichwörter" class="text-input-field textarea-field" placeholder="Stichwörter eingeben..."/>
+                    </div>
+
+                    <div class="input-group">
+                        <label>IDEALO URL</label>
+                        <textarea @bind="editProduct.idealoUrl" class="text-input-field textarea-field" placeholder="URL eingeben..."/>
+                    </div>
+                </div>
+                <div class="produkt-container-details">
+
+                    <div class="input-group">
+                        <label>EIGENSCHAFTEN</label>
+                        @for(var i = 0; i < editProduct.eigenschaften.Count(); i++)
+                        {
+                            var index = i;
+                            <div class="flex-row">
+                                <input type="text" @bind="editProduct.eigenschaften[index]" 
+                                       class="text-input-field-list" placeholder="Eigenschaft eingeben..."/>
+                                <button @onclick="() => DeleteEigenschaft(index)" class="rectangle-btn delete-btn">
+                                    <img src="trash-2.svg"/>
+                                </button>
+                            </div>
+                        }
+                        @if (editProduct.eigenschaften.Count <= 9)
+                        {
+                            <button class="rectangle-btn add-btn" @onclick="AddEigenschaft">
+                                Eigenschaft hinzufügen
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    public Produkt? ausgewählteProdukt;
+    private Produkt? editProduct = new Produkt();
+    private Produkt? newProduct { get; set; } = new Produkt();
+    private bool isEditing { get; set; } = false;
+    private bool isNewProduct { get; set; } = false;
+    private bool deleteConfirmPopup { get; set; } = false;
+
+    private void AddNewProductToList()
+    {
+        if (string.IsNullOrWhiteSpace(newProduct.name) || imageData is null || newProduct.preis == 0)
+        {
+            ShowAlert();
+            return;    
+        }
+
+        ProduktService.hochgeladeneProdukte.Add(newProduct);
+
+        if (imageData is not null)
+        {
+            ProduktService.Bilder[editProduct.bildPfad] = imageData;
+            imageData = null;
+        }
+
+        GoBackToHome();
+    }
+
+    private void GiveNewProductNewId()
+    {
+        newProduct.produktId = ProduktService.hochgeladeneProdukte.Max(id => id.produktId) + 1;
+    }
+
+    private void StartEditProduct()
+    {
+        editProduct = ausgewählteProdukt.CreateCopy();
+
+        isEditing = true;
+    }
+
+    private void SaveEditProduct()
+    {
+        if (ausgewählteProdukt == null || string.IsNullOrWhiteSpace(editProduct.name) || editProduct.preis is 0)
+        {
+            ShowAlert();
+            return;
+        }
+
+        var index = ProduktService.hochgeladeneProdukte.FindIndex(p => p.produktId == ausgewählteProdukt.produktId);
+
+        ausgewählteProdukt = editProduct;
+        ProduktService.hochgeladeneProdukte[index] = editProduct;
+
+        if(imageData is not null)
+        {
+            ProduktService.Bilder[editProduct.bildPfad] = imageData;
+            imageData = null;
+        }
+
+        isEditing = false;
+    }
+
+    private async Task CancelEditProduct()
+    {
+        if (isNewProduct)
+        {
+            GoBackToHome();
+        }
+        else
+        {
+            isEditing = false;
+        }  
+    }
+
+    private void GoBackToHome()
+    {
+        Navigation.NavigateTo("/");    
+    }
+
+    private void DeleteEigenschaft(int eigenschaftIndex)
+    {
+        editProduct.eigenschaften.RemoveAt(eigenschaftIndex);
+    }
+
+    private void AddEigenschaft()
+    {
+        editProduct.eigenschaften.Add(string.Empty);
+    }
+
+    private void ShowDeleteConfirmation()
+    {
+        deleteConfirmPopup = true;    
+    }
+
+    private void DeleteProduct()
+    {
+        var produkt = ausgewählteProdukt;
+        ProduktService.hochgeladeneProdukte.Remove(produkt);
+        GoBackToHome();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Id.HasValue)
+        {
+            ausgewählteProdukt = ProduktService.GetProductById(Id.Value);
+            isNewProduct = false;
+            deleteConfirmPopup = false;
+        }
+        else
+        {
+            deleteConfirmPopup = false;
+            newProduct = editProduct;
+            isNewProduct = true;
+            isEditing = true;
+            ausgewählteProdukt = null;
+            imageData = null;
+            GiveNewProductNewId();
+        }
+    }
+
+    byte[]? imageData;
+
+    private async Task LoadPickedProductImage(InputFileChangeEventArgs e)
+    {
+        var image = e.File;
+        var extension = Path.GetExtension(image.Name).ToLowerInvariant();
+
+        using var stream = image.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+
+        imageData = memoryStream.ToArray();
+
+        var safeName = editProduct.produktId.ToString() + extension;
+
+        editProduct.bildPfad = $"Bilder/{safeName}";
+
+        var base64String = Convert.ToBase64String(imageData);
+
+        editProduct.bildDataUrl = $"data:{image.ContentType};base64,{base64String}";
+    }
+
+    private bool alertVisible { get; set; } = false;
+
+    private async Task ShowAlert()
+    {
+        alertVisible = true;
+
+        await Task.Delay(3000);
+
+        alertVisible = false;
+
+        StateHasChanged();
+    }
+
+    private bool _isDragOver = false;
+
+    private void HandleDragEnter() => _isDragOver = true;
+    private void HandleDragLeave() => _isDragOver = false;
+}
