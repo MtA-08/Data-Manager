@@ -1,0 +1,50 @@
+name: Deploy Blazor App to GitHub Pages
+
+on:
+  push:
+    branches: [ main ] # or master, depending on your default branch
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x' # Change to 9.0.x if using .NET 9
+
+      - name: Publish Blazor WASM
+        run: dotnet publish -c Release -o output
+
+      - name: Fix static base href & routing
+        run: |
+          # Set base href to repository name for subpath hosting
+          sed -i 's/<base href="\/" \/>/<base href="\/Data-Manager\/" \/>/g' output/wwwroot/index.html
+          
+          # Copy index.html to 404.html for SPA page refresh routing
+          cp output/wwwroot/index.html output/wwwroot/404.html
+          
+          # Add .nojekyll to prevent GitHub from hiding _framework files
+          touch output/wwwroot/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: output/wwwroot
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
